@@ -3,9 +3,12 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt');
 const { MongoClient } = require('mongodb');
-const url = 'mongodb://localhost:27017/';
+require('dotenv').config();
+const url = process.env.MONGODB_URI;
+
 const client = new MongoClient(url);
-const dbName = 'busData';
+
+const dbName = process.env.DATABASE;
 
 const app = express();
 const port = 5000;
