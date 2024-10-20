@@ -8,7 +8,7 @@ const url = process.env.MONGODB_URI;
 
 const client = new MongoClient(url);
 
-const dbName = process.env.DATABASE;
+const dbName = database;
 
 const app = express();
 const port = 5000;
@@ -183,6 +183,41 @@ app.put('/details', async (req, res) => {
         res.status(500).json({ message: 'An error occurred while editing documents' });
     }
 });
+
+
+app.get('/api/check-rfid', async(req, res) => {
+    const { rfid } = req.query; 
+  
+    if (!rfid) {
+      return res.status(400).json({ message: 'RFID is required' }); 
+    }
+  
+    
+    const student = await collection.findOne({ rfid });
+  
+    if (student) {
+    
+      res.status(200).json({
+        rfid: student.rfid,
+        totalrow: 1,
+        data: [
+          {
+            name: student.name,
+            enrollment: student.enrollment,
+            branch: student.branch,
+            session: student.session
+          }
+        ]
+      });
+    } else {
+      
+      res.status(200).json({
+        rfid: rfid,
+        totalrow: 0,
+        data: []
+      });
+    }
+  });
 
 
 
