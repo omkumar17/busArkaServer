@@ -8,7 +8,7 @@ const url = process.env.MONGODB_URI;
 
 const client = new MongoClient(url);
 
-const dbName = DATABASE;
+const dbName = process.env.DATABASE;
 
 const app = express();
 const port = 5000;
