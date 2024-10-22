@@ -7,8 +7,10 @@ require('dotenv').config();
 const url = process.env.MONGODB_URI;
 
 const client = new MongoClient(url);
+// const client = new MongoClient('mongodb://localhost:27017/');
 
 const dbName = process.env.DATABASE;
+// const dbName = 'busData';
 
 const app = express();
 const port = 5000;
@@ -23,19 +25,24 @@ app.use(bodyParser.json());
 client.connect();
 const db = client.db(dbName);
 const collection = db.collection('user');
-const collectionAttend = db.collection(`bus`);
+const collectionBus = db.collection(`busDetails`);
+const studentLog = db.collection(`studentLogs`);
 
 app.get('/', (req, res) => {
     res.send('Hello World!');
-});
+}); 
 
 
 app.post('/Login', async (req, res) => {
     try {
 
-        const { enrollment, password, userType } = req.body;
-        const user = await collection.findOne({ enrollment });
+        const { email, password, userType } = req.body;
+        console.log(userType);
+        console.log(email);
+        console.log(password);
+        const user = await collection.findOne({ email });
 
+        console.log("user",user);
         if (!user) {
             return res.status(401).json({ message: 'Invalid ID or password user' });
         }
@@ -52,7 +59,7 @@ app.post('/Login', async (req, res) => {
         }
 
 
-        res.send({ success: true, message: 'Login successful', userType,  enrollment: user.enrollment,firstName:user.firstName });
+        res.send({ success: true, message: 'Login successful', userType,  enrollment: user.enrollment, email:user.email,firstName:user.firstName });
 
 
     }
@@ -193,31 +200,133 @@ app.get('/api/check-rfid', async(req, res) => {
     }
   
     
-    const student = await collection.findOne({ rfid });
+    const student = await collection.find({ rfid }).toArray();
+
   
-    if (student) {
+    if (student.length>=1) {
     
       res.status(200).json({
-        rfid: student.rfid,
-        totalrow: 1,
+        rfid: student[0].rfid,
+        totalrow: student.length,
         data: [
           {
-            name: student.name,
-            enrollment: student.enrollment,
-            branch: student.branch,
-            session: student.session
+            name: student[0].name,
+            enrollment: student[0].enrollment,
+            branch: student[0].branch,
+            session: student[0].session
           }
         ]
       });
-    } else {
+    } 
+    // else if(student.length>1){
+    //     res.status(402).json({
+    //         rfid:rfid,
+    //         totalrow:student.length
+    //     })
+    // }
+    else {
       
-      res.status(200).json({
+      res.status(300).json({
         rfid: rfid,
         totalrow: 0,
         data: []
       });
     }
   });
+
+  app.post('/api/rfid/check', async (req, res) => {
+    const { rfid_code, bus_no } = req.body;
+    console.log(rfid_code);
+    try {
+        // Check if student exists
+        const student = await studentLog.findOne({ rfid: rfid_code });
+        if (!student) {
+            return res.status(404).json({
+                error: true,
+                message: 'Invalid RFID: Student not found.'
+            });
+        }
+    
+        if (!student.current) {
+            const now = new Date();
+            const boardData = {
+                lat: 22.34567,
+                long: 85.67890, 
+                date: now.toLocaleDateString('en-IN'), 
+                time: now.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }) 
+            };
+    
+            // Update the document
+            const result = await studentLog.updateOne(
+                { rfid: rfid_code },
+                {
+                    $set: {
+                        current: bus_no,
+                        status: "boarded"
+                    },
+                    $push: {
+                        logs: {
+                            busno: bus_no,
+                            board: boardData,
+                            left:{}
+                        }
+                    }
+                }
+            );
+    
+            if (result.modifiedCount === 1) {
+                return res.status(200).json({
+                    error: false,
+                    message: 'Log entry created, student has boarded the bus.'
+                });
+            } else {
+                return res.status(500).json({
+                    error: true,
+                    message: 'Failed to update student log.'
+                });
+            }
+        } else {
+            const now = new Date();
+            const leftData = {
+                lat: 22.34567, 
+                long: 85.67890, 
+                date: now.toLocaleDateString('en-IN'), 
+                time: now.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }) 
+            };
+    
+            
+            const result = await studentLog.updateOne(
+                { rfid: rfid_code },
+                {
+                    $set: {
+                        current: '',
+                        status: "left",
+                        [`logs.${student.logs.length - 1}.left`]: leftData
+                    },
+                   
+                }
+            );
+    
+            if (result.modifiedCount === 1) {
+                return res.status(200).json({
+                    error: false,
+                    message: 'Log entry created, student has left the bus.'
+                });
+            } else {
+                return res.status(500).json({
+                    error: true,
+                    message: 'Failed to update student log.'
+                });
+            }
+        }
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({
+            error: true,
+            message: 'Internal server error.'
+        });
+    }
+});
 
 
 
