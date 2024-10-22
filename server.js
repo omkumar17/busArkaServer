@@ -25,7 +25,7 @@ app.use(bodyParser.json());
 client.connect();
 const db = client.db(dbName);
 const collection = db.collection('user');
-const collectionBus = db.collection(`busDetails`);
+const busDetails = db.collection(`busDetails`);
 const studentLog = db.collection(`studentLogs`);
 
 app.get('/', (req, res) => {
@@ -246,12 +246,20 @@ app.get('/api/check-rfid', async(req, res) => {
                 message: 'Invalid RFID: Student not found.'
             });
         }
+
+        const location = await busDetails.findOne( {bus_no:bus_no});
+        if (!location) {
+            return res.status(404).json({
+                error: true,
+                message: 'Invalid location: location not available.'
+            });
+        }
     
         if (!student.current) {
             const now = new Date();
             const boardData = {
-                lat: 22.34567,
-                long: 85.67890, 
+                lat: location.latitude,
+                long: location.longitude, 
                 date: now.toLocaleDateString('en-IN'), 
                 time: now.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }) 
             };
@@ -288,8 +296,8 @@ app.get('/api/check-rfid', async(req, res) => {
         } else {
             const now = new Date();
             const leftData = {
-                lat: 22.34567, 
-                long: 85.67890, 
+                lat: location.latitude, 
+                long: location.longitude, 
                 date: now.toLocaleDateString('en-IN'), 
                 time: now.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }) 
             };
@@ -327,6 +335,52 @@ app.get('/api/check-rfid', async(req, res) => {
         });
     }
 });
+
+app.post('/api/bus_location/update', async (req, res) => {
+    const { bus_no, latitude, longitude } = req.body;
+
+    try {
+        // Check if bus exists in the database
+        const bus = await busDetails.findOne({ bus_no });
+
+        if (!bus) {
+            return res.status(404).json({
+                error: true,
+                message: 'Bus not found.'
+            });
+        }
+
+        // Update the bus's latitude and longitude
+        const result = await busDetails.updateOne(
+            { bus_no },
+            {
+                $set: {
+                    latitude,
+                    longitude
+                }
+            }
+        );
+
+        if (result.modifiedCount === 1) {
+            return res.status(200).json({
+                error: false,
+                message: 'Bus location updated successfully.'
+            });
+        } else {
+            return res.status(500).json({
+                error: true,
+                message: 'Failed to update bus location.'
+            });
+        }
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({
+            error: true,
+            message: 'Internal server error.'
+        });
+    }
+});
+
 
 
 
