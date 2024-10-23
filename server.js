@@ -40,7 +40,83 @@ app.post('/Login', async (req, res) => {
         console.log(userType);
         console.log(email);
         console.log(password);
-        const user = await collection.findOne({ email });
+        const user = await collection.findOne({email:email });
+
+        console.log("user",user);
+        if (!user) {
+            return res.status(401).json({ message: 'Invalid ID or password user' });
+        }
+
+        if (userType !== user.userType) {
+            return res.status(401).json({ message: 'Invalid ID or user type type' });
+        }
+
+
+        const isMatch = await bcrypt.compare(password, user.password);
+
+        if (!isMatch) {
+            return res.status(401).json({ message: 'Invalid ID or password password' });
+        }
+
+
+        res.send({ success: true, message: 'Login successful', userType, email:user.email,firstName:user.firstName });
+
+
+    }
+    catch (error) {
+        console.error('Error fetching documents:', error);
+        res.status(500).json({ message: 'An error occurred while fetching documents' });
+    }
+});
+
+app.post('/LoginOtp', async (req, res) => {
+    try {
+
+        const { email, userType, otp, systemOtp } = req.body;
+        // console.log("dataServer",data);
+        let user = '';
+        if (email) {
+            user = await collection.findOne({ email });
+        }
+        
+
+        if (!user) {
+            return res.status(401).json({ message: 'Invalid ID or password user' });
+        }
+
+        if (userType !== user.userType) {
+            return res.status(401).json({ message: 'Invalid ID or user type type' });
+        }
+        if (otp && systemOtp) {
+            if (otp === systemOtp) {
+
+                return res.status(201).json({ message: 'otp successfully verified', userType: user.userType, name: user.firstName, email: user.email });
+
+            }
+            else {
+
+                return res.status(202).json({ message: 'invalid otp' });
+            }
+        }
+        res.send({ success: true, message: 'Login successful', userType, name: user.firstName, email: user.email });
+
+
+
+    }
+    catch (error) {
+        console.error('Error fetching documents:', error);
+        res.status(500).json({ message: 'An error occurred while fetching documents' });
+    }
+});
+
+app.post('/StudentLogin', async (req, res) => {
+    try {
+
+        const { enrollment, password, userType } = req.body;
+        console.log(userType);
+        console.log(enrollment);
+        console.log(password);
+        const user = await collection.findOne({enrollment:enrollment });
 
         console.log("user",user);
         if (!user) {
@@ -69,18 +145,16 @@ app.post('/Login', async (req, res) => {
     }
 });
 
-app.post('/LoginOtp', async (req, res) => {
+app.post('/StudentLoginOtp', async (req, res) => {
     try {
 
-        const { email, phone, userType, otp, systemOtp } = req.body;
+        const { email, userType, otp, systemOtp } = req.body;
         // console.log("dataServer",data);
         let user = '';
         if (email) {
             user = await collection.findOne({ email });
         }
-        else if (phone) {
-            user = await collection.findOne({ phone });
-        }
+       
 
         if (!user) {
             return res.status(401).json({ message: 'Invalid ID or password user' });
@@ -92,7 +166,7 @@ app.post('/LoginOtp', async (req, res) => {
         if (otp && systemOtp) {
             if (otp === systemOtp) {
 
-                return res.status(201).json({ message: 'otp successfully verified', userType: user.userType, name: user.firstName, enrollment: user.enrollment });
+                return res.status(201).json({ message: 'otp successfully verified',email:user.email, userType: user.userType, name: user.firstName, enrollment: user.enrollment });
 
             }
             else {
@@ -100,7 +174,7 @@ app.post('/LoginOtp', async (req, res) => {
                 return res.status(202).json({ message: 'invalid otp' });
             }
         }
-        res.send({ success: true, message: 'Login successful', userType, name: user.firstName, enrollment: user.enrollment });
+        res.send({ success: true, message: 'Login successful', email:user.email,userType, name: user.firstName, enrollment: user.enrollment });
 
 
 
@@ -110,6 +184,8 @@ app.post('/LoginOtp', async (req, res) => {
         res.status(500).json({ message: 'An error occurred while fetching documents' });
     }
 });
+
+
 
 app.post('/register', async (req, res) => {
     const formData = req.body;
