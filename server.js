@@ -27,6 +27,7 @@ const db = client.db(dbName);
 const collection = db.collection('user');
 const busDetails = db.collection(`busDetails`);
 const studentLog = db.collection(`studentLogs`);
+const contactsCollection = db.collection(`contacts`);
 
 app.get('/', (req, res) => {
     res.send('Hello World!');
@@ -220,7 +221,7 @@ app.post('/register', async (req, res) => {
 
 app.get('/details', async (req, res) => {
     try {
-        const user = await collection.find({}).toArray(); 
+        const user = await collection.find({ userType: 'student' }).toArray();
         if (user.length > 0) {
             res.status(200).send({ success: true, message: 'Data fetched', user });
         } else {
@@ -266,6 +267,54 @@ app.put('/details', async (req, res) => {
         res.status(500).json({ message: 'An error occurred while editing documents' });
     }
 });
+
+app.get('/busdetails', async (req, res) => {
+    try {
+        const bus = await busDetails.find({}).toArray();
+
+        if (bus.length > 0) {
+            res.status(200).send({ success: true, message: 'Data fetched', bus });
+        } else {
+            res.status(404).json({ success: false, message: 'No data found' });
+        }
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Server error', error: error.message });
+    }
+});
+
+app.put('/busdetails', async (req, res) => {
+    try {
+        const { bus_no, destination, seatCount } = req.body;
+
+        // Validate the presence of bus_no (assuming it uniquely identifies each bus)
+        if (!bus_no) {
+            return res.status(400).json({ message: 'Bus number is required' });
+        }
+
+        // Prepare the fields to update
+        const updateFields = {};
+        if (destination) updateFields.destination = destination;
+        if (seatCount) updateFields.seatCount = seatCount;
+        
+
+        // Update the document based on the provided bus_no
+        const result = await busDetails.updateOne(
+            { bus_no: bus_no },
+            { $set: updateFields }
+        );
+
+        // Check if any document was modified
+        if (result.modifiedCount === 0) {
+            return res.status(404).json({ message: 'No bus details found to update' });
+        }
+
+        res.status(200).json({ success: true, message: 'Bus details updated successfully', result });
+    } catch (error) {
+        console.error('Error updating bus details:', error);
+        res.status(500).json({ message: 'An error occurred while updating bus details' });
+    }
+});
+
 
 
 app.get('/api/check-rfid', async(req, res) => {
@@ -323,23 +372,30 @@ app.get('/api/check-rfid', async(req, res) => {
             });
         }
 
-        const location = await busDetails.findOne( {bus_no:bus_no});
+        const location = await busDetails.findOne({ bus_no: bus_no });
         if (!location) {
             return res.status(404).json({
                 error: true,
                 message: 'Invalid location: location not available.'
             });
         }
-    
+
+        const now = new Date();
+        // Format date to dd-mm-yyyy
+        const formattedDate = `${String(now.getDate()).padStart(2, '0')}-${String(now.getMonth() + 1).padStart(2, '0')}-${now.getFullYear()}`;
+        
+        // Convert time to Asia/Kolkata timezone
+        const options = { timeZone: 'Asia/Kolkata', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' };
+        const formattedTime = now.toLocaleTimeString('en-IN', options);
+
         if (!student.current) {
-            const now = new Date();
             const boardData = {
                 lat: location.latitude,
-                long: location.longitude, 
-                date: now.toLocaleDateString('en-IN'), 
-                time: now.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }) 
+                long: location.longitude,
+                date: formattedDate,
+                time: formattedTime
             };
-    
+
             // Update the document
             const result = await studentLog.updateOne(
                 { rfid: rfid_code },
@@ -352,12 +408,12 @@ app.get('/api/check-rfid', async(req, res) => {
                         logs: {
                             busno: bus_no,
                             board: boardData,
-                            left:{}
+                            left: {}
                         }
                     }
                 }
             );
-    
+
             if (result.modifiedCount === 1) {
                 return res.status(200).json({
                     error: false,
@@ -370,15 +426,13 @@ app.get('/api/check-rfid', async(req, res) => {
                 });
             }
         } else {
-            const now = new Date();
             const leftData = {
-                lat: location.latitude, 
-                long: location.longitude, 
-                date: now.toLocaleDateString('en-IN'), 
-                time: now.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }) 
+                lat: location.latitude,
+                long: location.longitude,
+                date: formattedDate,
+                time: formattedTime
             };
-    
-            
+
             const result = await studentLog.updateOne(
                 { rfid: rfid_code },
                 {
@@ -386,11 +440,10 @@ app.get('/api/check-rfid', async(req, res) => {
                         current: '',
                         status: "left",
                         [`logs.${student.logs.length - 1}.left`]: leftData
-                    },
-                   
+                    }
                 }
             );
-    
+
             if (result.modifiedCount === 1) {
                 return res.status(200).json({
                     error: false,
@@ -411,6 +464,8 @@ app.get('/api/check-rfid', async(req, res) => {
         });
     }
 });
+
+
 
 app.post('/api/bus_location/update', async (req, res) => {
     const { bus_no, latitude, longitude } = req.body;
@@ -457,7 +512,76 @@ app.post('/api/bus_location/update', async (req, res) => {
     }
 });
 
+app.get('/punchlog', async (req, res) => {
+    try {
+        const body = req.query;
+        const enrollment=body.enrollment;
+        console.log(body.enrollment);
 
+        if (!body.enrollment) {
+            return res.status(400).json({ success: false, message: "Enrollment query parameter is required" });
+        }
+
+        // Find logs based on the enrollment query
+        const logs = await studentLog.find({ enrollment }).toArray();
+        console.log(logs);
+
+        if (!logs || logs.length === 0) {
+            return res.status(404).json({ success: false, message: "No logs found for this enrollment" });
+        }
+
+        res.status(200).json({ success: true, logs });
+    } catch (error) {
+        console.error("Error fetching punch log data:", error);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
+});
+
+app.get('/api/contacts', async (req, res) => {
+    try {
+        const contacts = await contactsCollection.find({}).toArray();
+        res.status(200).json(contacts);
+    } catch (error) {
+        console.error('Error fetching contacts:', error);
+        res.status(500).send('Internal Server Error');
+    }
+});
+
+// Endpoint to insert a new contact
+app.post('/api/contacts', async (req, res) => {
+    try {
+        const { name, designation, email, contact } = req.body;
+        const newContact = { name, designation, email, contact };
+
+        const result = await contactsCollection.insertOne(newContact);
+        res.status(201).json(result); // Return the newly created contact
+    } catch (error) {
+        console.error('Error inserting contact:', error);
+        res.status(500).send('Internal Server Error');
+    }
+});
+
+// Endpoint to update an existing contact
+app.put('/api/contacts/', async (req, res) => {
+    try {
+        
+        const { name, designation, email, contact } = req.body;
+
+        const result = await contactsCollection.updateOne(
+            { name }, // Use ObjectId to match the MongoDB document
+            { $set: { name, designation, email, contact } }
+        );
+
+        if (result.matchedCount === 0) {
+            return res.status(404).send('Contact not found');
+        }
+
+        res.status(200).send('Contact updated successfully');
+    } catch (error) {
+        console.error('Error updating contact:', error);
+        res.status(500).send('Internal Server Error');
+    }
+});
 
 
 app.listen(port, () => {
