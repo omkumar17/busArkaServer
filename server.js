@@ -29,6 +29,7 @@ const busDetails = db.collection(`busDetails`);
 const studentLog = db.collection(`studentLogs`);
 const contactsCollection = db.collection(`contacts`);
 const noticeCollection = db.collection(`notice`);
+const feedback = db.collection(`feedback`);
 
 app.get('/', (req, res) => {
     res.send('Hello World!');
@@ -746,8 +747,114 @@ app.delete('/notice/:id', async (req, res) => {
 });
 
 
+app.get('/api/students/count', async (req, res) => {
+    try {
+        const count = await collection.countDocuments({});
+        console.log(count);
+        res.json(count);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Failed to get total students count" });
+    }
+});
+
+// Endpoint to get inactive students count
+app.get('/api/students/inactiveCount', async (req, res) => {
+    try {
+        const count = await collection.countDocuments({ status: 'active' });
+        res.json(count);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Failed to get inactive students count" });
+    }
+});
+
+// Endpoint to get total buses count
+app.get('/api/buses/count', async (req, res) => {
+    try {
+        const count = await busDetails.countDocuments({});
+        res.json(count);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Failed to get total buses count" });
+    }
+});
+
+// Endpoint to get live buses count
+app.get('/api/buses/liveCount', async (req, res) => {
+    try {
+        const count = await busDetails.countDocuments({ });
+        res.json(count);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Failed to get live buses count" });
+    }
+});
 
 
+// POST /feedback - Create a new feedback entry
+app.get('/api/feedback', async (req, res) => {
+    try {
+        const result = await db.collection('feedback').find({}).toArray();
+        res.status(200).json({ result });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Could not create feedback' });
+    }
+});
+
+// POST /feedback/:id/reply - Add a reply to a feedback entry
+
+app.post('/api/feedback/reply', async (req, res) => {
+    const { feedbackId, replyText } = req.body;
+    console.log(feedbackId,replyText);
+
+    // Basic validation
+    if (!feedbackId || !replyText) {
+        return res.status(400).json({ success: false, message: "Feedback ID and reply text are required." });
+    }
+
+    // Find the feedback by ID
+    const feedbacks = await feedback.findOne({id:feedbackId});
+    if (!feedbacks) {
+        return res.status(404).json({ success: false, message: "Feedback not found." });
+    }
+
+    // Get the current date and time in IST
+    const now = new Date();
+    const optionsDate = { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Kolkata' };
+    const optionsTime = { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' };
+
+    // Format date
+    const formattedDate = new Intl.DateTimeFormat('en-IN', optionsDate).format(now);
+    // Format time
+    const formattedTime = new Intl.DateTimeFormat('en-IN', optionsTime).format(now);
+
+    // Update the feedback with the reply
+    const reply = {
+        user: 'Admin', // Assuming you have the user info available
+        text: replyText,
+        date: formattedDate, // dd-mm-yyyy format
+        time: formattedTime   // hh:mm format
+    };
+
+    const result = await feedback.updateOne(
+        { id: feedbackId }, // Match the notice by ID
+        {
+            $set: {
+                reply:{reply}
+            }
+        }
+    );
+
+    // Check if a notice was matched and updated
+    if (result.matchedCount === 0) {
+        return res.status(404).json({ message: 'Notice not found' });
+    }
+
+    // Respond with success
+    res.json({ success: true, message: "Reply added successfully." });
+});
 
 app.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`);
