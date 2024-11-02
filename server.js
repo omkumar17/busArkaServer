@@ -795,13 +795,23 @@ app.get('/api/buses/liveCount', async (req, res) => {
 // POST /feedback - Create a new feedback entry
 app.get('/api/feedback', async (req, res) => {
     try {
-        const result = await db.collection('feedback').find({}).toArray();
+        const result = await db.collection('feedback')
+            .find({})
+            .sort({
+                // Sorting by date and then by time. 
+                // Adjust the fields as necessary based on your data structure.
+                date: -1, // Ascending order (change to -1 for descending)
+                time: -1  // Ascending order (change to -1 for descending)
+            })
+            .toArray();
+
         res.status(200).json({ result });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Could not create feedback' });
+        res.status(500).json({ error: 'Could not fetch feedback' });
     }
 });
+
 
 // POST /feedback/:id/reply - Add a reply to a feedback entry
 
@@ -854,6 +864,61 @@ app.post('/api/feedback/reply', async (req, res) => {
 
     // Respond with success
     res.json({ success: true, message: "Reply added successfully." });
+});
+
+app.post('/api/feedback', async (req, res) => {
+    const body = req.body;
+    const id=body.id;
+    const user=body.user;
+    const text=body.text;
+    console.log(body);
+    if (!user || !text) {
+        return res.status(400).json({ message: 'User and text are required' });
+    }
+
+    // Get current date and time in IST (Indian Standard Time)
+    const now = new Date();
+    const options = {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false // 24-hour format
+    };
+
+    const dateFormatter = new Intl.DateTimeFormat('en-IN', options);
+
+    // Formatting date as dd-mm-yyyy
+    const [datePart] = dateFormatter.format(now).split(',');
+    const [day, month, year] = datePart.split('/'); // assuming it returns day/month/year format
+    const formattedDate = `${day}-${month}-${year}`; // dd-mm-yyyy format
+
+    // Formatting time as HH:MM
+    const formattedTime = dateFormatter.format(now).split(',')[1].trim().substring(0, 5); // Extracting HH:MM
+
+    // Create new feedback object
+    const newFeedback = {
+        id, // Generate a new UUID for the feedback
+        user,
+        text,
+        date: formattedDate,
+        time: formattedTime,
+        reply: [] // Initialize reply as an empty array
+    };
+
+    try {
+        // Insert the new feedback into the MongoDB collection
+        const result = await feedback.insertOne(newFeedback);
+
+        // Send response
+        res.status(201).json({ message: 'Feedback added successfully', feedback: newFeedback });
+    } catch (error) {
+        console.error('Error inserting feedback:', error);
+        res.status(500).json({ message: 'Internal Server Error' });
+    }
 });
 
 app.listen(port, () => {
