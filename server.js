@@ -3,7 +3,10 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt');
 const { MongoClient, ObjectId } = require('mongodb');
-require('dotenv').config();
+
+const dotenv = require('dotenv');
+const nodemailer = require('nodemailer');
+
 const url = process.env.MONGODB_URI;
 
 const client = new MongoClient(url);
@@ -11,7 +14,7 @@ const client = new MongoClient(url);
 
 const dbName = process.env.DATABASE;
 // const dbName = 'busData';
-
+dotenv.config();
 const app = express();
 const port = 5000;
 
@@ -30,6 +33,7 @@ const studentLog = db.collection(`studentLogs`);
 const contactsCollection = db.collection(`contacts`);
 const noticeCollection = db.collection(`notice`);
 const feedback = db.collection(`feedback`);
+const fees = db.collection(`fee`);
 
 app.get('/', (req, res) => {
     res.send('Hello World!');
@@ -285,11 +289,11 @@ app.get('/busdetails', async (req, res) => {
 });
 
 app.post('/busdetails', async (req, res) => {
-    const {id, bus_no, destination, seatCount, peopleCount, latitude, longitude } = req.body;
+    const { id, bus_no, destination, seatCount, peopleCount, latitude, longitude } = req.body;
 
     // Validate the input
-    console.log("data",id,bus_no,latitude,longitude);
-    
+    console.log("data", id, bus_no, latitude, longitude);
+
 
     try {
         // Insert the bus details into the "buses" collection
@@ -783,7 +787,7 @@ app.get('/api/buses/count', async (req, res) => {
 // Endpoint to get live buses count
 app.get('/api/buses/liveCount', async (req, res) => {
     try {
-        const count = await busDetails.countDocuments({ });
+        const count = await busDetails.countDocuments({});
         res.json(count);
     } catch (error) {
         console.error(error);
@@ -817,7 +821,7 @@ app.get('/api/feedback', async (req, res) => {
 
 app.post('/api/feedback/reply', async (req, res) => {
     const { feedbackId, replyText } = req.body;
-    console.log(feedbackId,replyText);
+    console.log(feedbackId, replyText);
 
     // Basic validation
     if (!feedbackId || !replyText) {
@@ -825,7 +829,7 @@ app.post('/api/feedback/reply', async (req, res) => {
     }
 
     // Find the feedback by ID
-    const feedbacks = await feedback.findOne({id:feedbackId});
+    const feedbacks = await feedback.findOne({ id: feedbackId });
     if (!feedbacks) {
         return res.status(404).json({ success: false, message: "Feedback not found." });
     }
@@ -852,7 +856,7 @@ app.post('/api/feedback/reply', async (req, res) => {
         { id: feedbackId }, // Match the notice by ID
         {
             $set: {
-                reply:{reply}
+                reply: { reply }
             }
         }
     );
@@ -868,9 +872,9 @@ app.post('/api/feedback/reply', async (req, res) => {
 
 app.post('/api/feedback', async (req, res) => {
     const body = req.body;
-    const id=body.id;
-    const user=body.user;
-    const text=body.text;
+    const id = body.id;
+    const user = body.user;
+    const text = body.text;
     console.log(body);
     if (!user || !text) {
         return res.status(400).json({ message: 'User and text are required' });
@@ -918,6 +922,95 @@ app.post('/api/feedback', async (req, res) => {
     } catch (error) {
         console.error('Error inserting feedback:', error);
         res.status(500).json({ message: 'Internal Server Error' });
+    }
+});
+
+app.post('/send-email', async (req, res) => {
+    try {
+        const { to, subject, text } = req.body;
+
+        // Create a transporter
+        const transporter = nodemailer.createTransport({
+            host: 'smtp.gmail.com',
+            port: 465,
+            secure: true, // true for port 465, false for other ports
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS
+            }
+        });
+
+
+        // Email options
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: to,
+            subject: subject,
+            text: text
+        };
+
+        // Send the email
+        const info = await transporter.sendMail(mailOptions);
+        console.log('Email sent: ' + info.response);
+        res.status(200).json({ message: 'Email sent successfully' });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Failed to send email' });
+    }
+});
+
+app.post('/api/changepassword', async (req, res) => {
+    const body = req.body;
+
+    try {
+        // Connect to the MongoDB client
+
+        // Find the user by email
+        const user = await collection.findOne({ email: body.email });
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        // Compare the old password with the stored hashed password
+        if (body.oldPassword) {
+            const isMatch = await bcrypt.compare(body.oldPassword, user.password);
+
+            if (!isMatch) {
+                return res.status(400).json({ error: 'Incorrect old password' });
+            }
+        }
+        // Hash the new password
+        if(!body.oldPassword && !body.forgot){
+            return res.status(400).json({ error: 'Incorrect access' });
+        }
+        const hashedNewPassword = await bcrypt.hash(body.newPassword, 10);
+
+        // Update the user's password with the new hashed password
+        await collection.updateOne(
+            { email: body.email },
+            { $set: { password: hashedNewPassword } }
+        );
+
+        res.status(200).json({ message: 'Password updated successfully' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Failed to update password' });
+    }
+});
+
+app.post('/feedetails', async (req, res) => {
+    const body=req.body;
+    try {
+        const fee = await fees.find({ enrollment:body.enrollment}).toArray();
+        if (fee.length > 0) {
+            res.status(200).send({ success: true, message: 'Data fetched', fee });
+        } else {
+            res.status(404).json({ success: false, message: 'No data found' });
+        }
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Server error', error: error.message });
     }
 });
 
