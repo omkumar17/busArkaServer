@@ -155,11 +155,11 @@ app.post('/StudentLogin', async (req, res) => {
 app.post('/StudentLoginOtp', async (req, res) => {
     try {
 
-        const { email, userType, otp, systemOtp } = req.body;
+        const { enrollment, email, userType, otp, systemOtp } = req.body;
         // console.log("dataServer",data);
         let user = '';
-        if (email) {
-            user = await collection.findOne({ email });
+        if (email && enrollment) {
+            user = await collection.findOne({ email, enrollment });
         }
 
 
@@ -228,6 +228,20 @@ app.post('/register', async (req, res) => {
 app.get('/details', async (req, res) => {
     try {
         const user = await collection.find({ userType: 'student' }).toArray();
+        if (user.length > 0) {
+            res.status(200).send({ success: true, message: 'Data fetched', user });
+        } else {
+            res.status(404).json({ success: false, message: 'No data found' });
+        }
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Server error', error: error.message });
+    }
+});
+
+app.post('/profiledetails', async (req, res) => {
+    const { enrollment } = req.body;
+    try {
+        const user = await collection.find({ enrollment }).toArray();
         if (user.length > 0) {
             res.status(200).send({ success: true, message: 'Data fetched', user });
         } else {
@@ -927,8 +941,12 @@ app.post('/api/feedback', async (req, res) => {
 
 app.post('/send-email', async (req, res) => {
     try {
-        const { to, subject, text } = req.body;
-
+        const { enrollment, to, subject, text } = req.body;
+        const user = await collection.findOne({ enrollment, email:to });
+        // console.log(user);
+        if (!user) {
+            return res.status(404).json({ message: 'invalid user' });
+        }
         // Create a transporter
         const transporter = nodemailer.createTransport({
             host: 'smtp.gmail.com',
@@ -982,7 +1000,7 @@ app.post('/api/changepassword', async (req, res) => {
             }
         }
         // Hash the new password
-        if(!body.oldPassword && !body.forgot){
+        if (!body.oldPassword && !body.forgot) {
             return res.status(400).json({ error: 'Incorrect access' });
         }
         const hashedNewPassword = await bcrypt.hash(body.newPassword, 10);
@@ -1001,9 +1019,9 @@ app.post('/api/changepassword', async (req, res) => {
 });
 
 app.post('/feedetails', async (req, res) => {
-    const body=req.body;
+    const body = req.body;
     try {
-        const fee = await fees.find({ enrollment:body.enrollment}).toArray();
+        const fee = await fees.find({ enrollment: body.enrollment }).toArray();
         if (fee.length > 0) {
             res.status(200).send({ success: true, message: 'Data fetched', fee });
         } else {
