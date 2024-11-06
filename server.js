@@ -941,11 +941,23 @@ app.post('/api/feedback', async (req, res) => {
 
 app.post('/send-email', async (req, res) => {
     try {
-        const { enrollment, to, subject, text } = req.body;
-        const user = await collection.findOne({ enrollment, email:to });
-        // console.log(user);
-        if (!user) {
-            return res.status(404).json({ message: 'invalid user' });
+        // const { enrollment, to, subject, text } = req.body;
+        const body = req.body;
+        if (body.enrollment) {
+            const user = await collection.findOne({ enrollment:body.enrollment, email: body.to });
+            // console.log(user);
+
+            if (!user) {
+                return res.status(404).json({ message: 'invalid user' });
+            }
+        }
+        if(body.userType){
+            const user = await collection.findOne({ userType:body.userType, email: body.to });
+            // console.log(user);
+
+            if (!user) {
+                return res.status(404).json({ message: 'invalid user' });
+            }
         }
         // Create a transporter
         const transporter = nodemailer.createTransport({
@@ -962,9 +974,9 @@ app.post('/send-email', async (req, res) => {
         // Email options
         const mailOptions = {
             from: process.env.EMAIL_USER,
-            to: to,
-            subject: subject,
-            text: text
+            to: body.to,
+            subject: body.subject,
+            text: body.text
         };
 
         // Send the email
@@ -977,6 +989,8 @@ app.post('/send-email', async (req, res) => {
         res.status(500).json({ error: 'Failed to send email' });
     }
 });
+
+
 
 app.post('/api/changepassword', async (req, res) => {
     const body = req.body;
