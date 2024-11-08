@@ -83,7 +83,7 @@ app.post('/LoginOtp', async (req, res) => {
         // console.log("dataServer",data);
         let user = '';
         if (email) {
-            user = await collection.findOne({ email });
+            user = await collection.findOne({ email,userType });
         }
 
 
@@ -202,6 +202,14 @@ app.post('/register', async (req, res) => {
     if (user) {
         return res.status(410).json({ message: 'User already present' });
     }
+    const emailcheck = await collection.findOne({ email: formData.email });
+    if (emailcheck) {
+        return res.status(410).json({ message: 'User already present' });
+    }
+    const mobilecheck = await collection.findOne({ mobile: formData.mobile });
+    if (mobilecheck) {
+        return res.status(410).json({ message: 'User already present' });
+    }
 
     try {
 
@@ -255,16 +263,18 @@ app.post('/profiledetails', async (req, res) => {
 app.put('/details', async (req, res) => {
     try {
         const data = req.body;
-
+        console.log(data);
         // Ensure email is provided in the request
         if (!data.email) {
             return res.status(400).json({ message: 'Email is required' });
         }
 
         const findResult = await collection.updateOne(
-            { email: data.email },
+            { enrollment: data.enrollment },
             {
                 $set: {
+                    firstName:data.firstName,
+                    lastName:data.lastName,
                     email: data.email,
                     branch: data.branch,
                     phone: data.phone,
@@ -275,7 +285,7 @@ app.put('/details', async (req, res) => {
                 }
             }
         );
-
+        console.log(findResult)
 
         if (findResult.modifiedCount === 0) {
             return res.status(404).json({ message: 'No document found to update' });
@@ -303,22 +313,23 @@ app.get('/busdetails', async (req, res) => {
 });
 
 app.post('/busdetails', async (req, res) => {
-    const { id, bus_no, destination, seatCount, peopleCount, latitude, longitude } = req.body;
+    const { id,reg_no, bus_no, destination,route, seatCount, peopleCount } = req.body;
 
     // Validate the input
-    console.log("data", id, bus_no, latitude, longitude);
+    console.log("data", id, bus_no, );
 
 
     try {
         // Insert the bus details into the "buses" collection
         const result = await busDetails.insertOne({
             id,
+            reg_no,
             bus_no,
             destination,
+            route,
             seatCount,
             peopleCount,
-            latitude,
-            longitude
+            
         });
 
         return res.status(200).json({ success: true, message: 'Bus details added successfully!', busId: result.insertedId });
@@ -1034,6 +1045,7 @@ app.post('/api/changepassword', async (req, res) => {
 
 app.post('/feedetails', async (req, res) => {
     const body = req.body;
+    console.log("enrollment",body);
     try {
         const fee = await fees.find({ enrollment: body.enrollment }).toArray();
         if (fee.length > 0) {
@@ -1045,6 +1057,63 @@ app.post('/feedetails', async (req, res) => {
         res.status(500).json({ success: false, message: 'Server error', error: error.message });
     }
 });
+
+app.get('/show-bus-location', (req, res) => {
+    const { latitude, longitude } = req.query;
+  
+    // Validate latitude and longitude
+    if (!latitude || !longitude) {
+      return res.status(400).send('Latitude and longitude are required');
+    }
+  
+    // Serve the HTML page with map
+    res.send(`
+      <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bus Location on OpenStreetMap</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"/>
+    <style>
+      #map {
+        width: 100%;
+        height: 500px;
+        border: 1px solid #ddd;
+      }
+    </style>
+    <!-- Load Leaflet JS after Leaflet CSS -->
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+  </head>
+  <body>
+  
+    <h1>Bus Location</h1>
+    <div id="map"></div>
+  
+    <script>
+      // Wait for the DOM to fully load before running the map initialization code
+      document.addEventListener('DOMContentLoaded', () => {
+        // Initialize the map and set view to the bus location coordinates
+        const map = L.map('map').setView([${latitude}, ${longitude}], 15); // latitude, longitude, zoom level
+  
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+  
+        // Add a marker at the bus location
+        L.marker([${latitude}, ${longitude}]).addTo(map)
+          .bindPopup('Bus Location')
+          .openPopup();
+      });
+    </script>
+  
+  </body>
+  </html>
+  
+    `);
+  });
 
 app.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`);
