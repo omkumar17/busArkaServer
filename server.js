@@ -433,7 +433,7 @@ app.get('/api/check-rfid', async (req, res) => {
 });
 
 app.post('/api/rfid/check', async (req, res) => {
-    const { rfid_code, bus_no } = req.body;
+    const { rfid_code, reg_no } = req.body;
     console.log(rfid_code);
     try {
         // Check if student exists
@@ -445,7 +445,7 @@ app.post('/api/rfid/check', async (req, res) => {
             });
         }
 
-        const location = await busDetails.findOne({ bus_no: bus_no });
+        const location = await busDetails.findOne({ reg_no: reg_no });
         if (!location) {
             return res.status(404).json({
                 error: true,
@@ -474,12 +474,12 @@ app.post('/api/rfid/check', async (req, res) => {
                 { rfid: rfid_code },
                 {
                     $set: {
-                        current: bus_no,
+                        current: reg_no,
                         status: "boarded"
                     },
                     $push: {
                         logs: {
-                            busno: bus_no,
+                            busno: reg_no,
                             board: boardData,
                             left: {}
                         }
@@ -541,11 +541,11 @@ app.post('/api/rfid/check', async (req, res) => {
 
 
 app.post('/api/bus_location/update', async (req, res) => {
-    const { bus_no, latitude, longitude } = req.body;
+    const { reg_no, latitude, longitude } = req.body;
 
     try {
         // Check if bus exists in the database
-        const bus = await busDetails.findOne({ bus_no });
+        const bus = await busDetails.findOne({ reg_no });
 
         if (!bus) {
             return res.status(404).json({
@@ -556,7 +556,7 @@ app.post('/api/bus_location/update', async (req, res) => {
 
         // Update the bus's latitude and longitude
         const result = await busDetails.updateOne(
-            { bus_no },
+            { reg_no },
             {
                 $set: {
                     latitude,
