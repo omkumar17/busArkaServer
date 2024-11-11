@@ -585,6 +585,31 @@ app.post('/api/bus_location/update', async (req, res) => {
     }
 });
 
+
+app.get('/getlocation', async (req, res) => {
+    try {
+        const {busId} = req.query;
+        
+
+        if (!busId) {
+            return res.status(400).json({ success: false, message: "BusId query parameter is required" });
+        }
+
+        // Find logs based on the enrollment query
+        const data = await busDetails.findOne({ reg_no:busId });
+        console.log(data);
+
+        if (!data || data.length === 0) {
+            return res.status(404).json({ success: false, message: "No logs found for this bus" });
+        }
+
+        res.status(200).json({ success: true, latitude:data.latitude,longitude:data.longitude });
+    } catch (error) {
+        console.error("Error fetching data:", error);
+        res.status(500).json({ success: false, message: "Server error" });
+    }
+});
+
 app.get('/punchlog', async (req, res) => {
     try {
         const body = req.query;
@@ -1058,62 +1083,7 @@ app.post('/feedetails', async (req, res) => {
     }
 });
 
-app.get('/show-bus-location', (req, res) => {
-    const { latitude, longitude } = req.query;
-  
-    // Validate latitude and longitude
-    if (!latitude || !longitude) {
-      return res.status(400).send('Latitude and longitude are required');
-    }
-  
-    // Serve the HTML page with map
-    res.send(`
-      <!DOCTYPE html>
-  <html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bus Location on OpenStreetMap</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"/>
-    <style>
-      #map {
-        width: 100%;
-        height: 500px;
-        border: 1px solid #ddd;
-      }
-    </style>
-    <!-- Load Leaflet JS after Leaflet CSS -->
-    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
-  </head>
-  <body>
-  
-    <h1>Bus Location</h1>
-    <div id="map"></div>
-  
-    <script>
-      // Wait for the DOM to fully load before running the map initialization code
-      document.addEventListener('DOMContentLoaded', () => {
-        // Initialize the map and set view to the bus location coordinates
-        const map = L.map('map').setView([${latitude}, ${longitude}], 15); // latitude, longitude, zoom level
-  
-        // Add OpenStreetMap tiles
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19,
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        }).addTo(map);
-  
-        // Add a marker at the bus location
-        L.marker([${latitude}, ${longitude}]).addTo(map)
-          .bindPopup('Bus Location')
-          .openPopup();
-      });
-    </script>
-  
-  </body>
-  </html>
-  
-    `);
-  });
+
 
 app.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`);
