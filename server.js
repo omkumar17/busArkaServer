@@ -9,11 +9,11 @@ const nodemailer = require('nodemailer');
 
 const url = process.env.MONGODB_URI;
 
-// const client = new MongoClient(url);
-const client = new MongoClient('mongodb://localhost:27017/');
+const client = new MongoClient(url);
+// const client = new MongoClient('mongodb://localhost:27017/');
 
-// const dbName = process.env.DATABASE;
-const dbName = 'busData';
+const dbName = process.env.DATABASE;
+// const dbName = 'busData';
 dotenv.config();
 const app = express();
 const port = 5000;
