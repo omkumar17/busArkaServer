@@ -83,7 +83,7 @@ app.post('/LoginOtp', async (req, res) => {
         // console.log("dataServer",data);
         let user = '';
         if (email) {
-            user = await collection.findOne({ email,userType });
+            user = await collection.findOne({ email, userType });
         }
 
 
@@ -198,7 +198,7 @@ app.post('/register', async (req, res) => {
     const formData = req.body;
 
 
-    const user = await collection.findOne({ enrollment: formData.enrollment, email: formData.email, mobile: formData.mobile });
+    const user = await collection.findOne({ enrollment: formData.enrollment });
     if (user) {
         return res.status(410).json({ message: 'User already present' });
     }
@@ -206,7 +206,7 @@ app.post('/register', async (req, res) => {
     if (emailcheck) {
         return res.status(410).json({ message: 'User already present' });
     }
-    const mobilecheck = await collection.findOne({ mobile: formData.mobile });
+    const mobilecheck = await collection.findOne({ phone: formData.mobile });
     if (mobilecheck) {
         return res.status(410).json({ message: 'User already present' });
     }
@@ -273,8 +273,8 @@ app.put('/details', async (req, res) => {
             { enrollment: data.enrollment },
             {
                 $set: {
-                    firstName:data.firstName,
-                    lastName:data.lastName,
+                    firstName: data.firstName,
+                    lastName: data.lastName,
                     email: data.email,
                     branch: data.branch,
                     phone: data.phone,
@@ -313,10 +313,10 @@ app.get('/busdetails', async (req, res) => {
 });
 
 app.post('/busdetails', async (req, res) => {
-    const { id,reg_no, bus_no, destination,route, seatCount, peopleCount } = req.body;
+    const { id, reg_no, bus_no, destination, route, seatCount, peopleCount } = req.body;
 
     // Validate the input
-    console.log("data", id, bus_no, );
+    console.log("data", id, bus_no,);
 
 
     try {
@@ -329,7 +329,7 @@ app.post('/busdetails', async (req, res) => {
             route,
             seatCount,
             peopleCount,
-            
+
         });
 
         return res.status(200).json({ success: true, message: 'Bus details added successfully!', busId: result.insertedId });
@@ -449,7 +449,7 @@ app.post('/api/rfid/check', async (req, res) => {
         if (!location) {
             return res.status(404).json({
                 error: true,
-                message: 'Invalid location: location not available.'
+                message: 'Invalid bus: bus not available.'
             });
         }
 
@@ -488,10 +488,16 @@ app.post('/api/rfid/check', async (req, res) => {
             );
 
             if (result.modifiedCount === 1) {
+                await busDetails.updateOne(
+                    { reg_no: reg_no },
+                    { $inc: { peopleCount: 1 } }
+                );
+
                 return res.status(200).json({
                     error: false,
                     message: 'Log entry created, student has boarded the bus.'
                 });
+                //update busdetails peoplecount field to +1 for reg_no=busno
             } else {
                 return res.status(500).json({
                     error: true,
@@ -518,10 +524,16 @@ app.post('/api/rfid/check', async (req, res) => {
             );
 
             if (result.modifiedCount === 1) {
+                await busDetails.updateOne(
+                    { reg_no: reg_no },
+                    { $inc: { peopleCount: -1 } }
+                );
+
                 return res.status(200).json({
                     error: false,
                     message: 'Log entry created, student has left the bus.'
                 });
+                //update busdetails peoplecount field to -1 for reg_no=busno
             } else {
                 return res.status(500).json({
                     error: true,
@@ -588,22 +600,22 @@ app.post('/api/bus_location/update', async (req, res) => {
 
 app.get('/getlocation', async (req, res) => {
     try {
-        const {busId} = req.query;
-        
+        const { busId } = req.query;
+
 
         if (!busId) {
             return res.status(400).json({ success: false, message: "BusId query parameter is required" });
         }
 
         // Find logs based on the enrollment query
-        const data = await busDetails.findOne({ reg_no:busId });
+        const data = await busDetails.findOne({ reg_no: busId });
         console.log(data);
 
         if (!data || data.length === 0) {
             return res.status(404).json({ success: false, message: "No logs found for this bus" });
         }
 
-        res.status(200).json({ success: true, latitude:data.latitude,longitude:data.longitude });
+        res.status(200).json({ success: true, latitude: data.latitude, longitude: data.longitude });
     } catch (error) {
         console.error("Error fetching data:", error);
         res.status(500).json({ success: false, message: "Server error" });
@@ -803,7 +815,7 @@ app.delete('/notice/:id', async (req, res) => {
 
 app.get('/api/students/count', async (req, res) => {
     try {
-        const count = await collection.countDocuments({});
+        const count = await collection.countDocuments({ userType: "student" });
         console.log(count);
         res.json(count);
     } catch (error) {
@@ -815,7 +827,7 @@ app.get('/api/students/count', async (req, res) => {
 // Endpoint to get inactive students count
 app.get('/api/students/inactiveCount', async (req, res) => {
     try {
-        const count = await collection.countDocuments({ status: 'active' });
+        const count = await collection.countDocuments({userType:'student', status: 'inactive' });
         res.json(count);
     } catch (error) {
         console.error(error);
@@ -980,15 +992,15 @@ app.post('/send-email', async (req, res) => {
         // const { enrollment, to, subject, text } = req.body;
         const body = req.body;
         if (body.enrollment) {
-            const user = await collection.findOne({ enrollment:body.enrollment, email: body.to });
+            const user = await collection.findOne({ enrollment: body.enrollment, email: body.to });
             // console.log(user);
 
             if (!user) {
                 return res.status(404).json({ message: 'invalid user' });
             }
         }
-        if(body.userType){
-            const user = await collection.findOne({ userType:body.userType, email: body.to });
+        if (body.userType) {
+            const user = await collection.findOne({ userType: body.userType, email: body.to });
             // console.log(user);
 
             if (!user) {
@@ -1070,7 +1082,7 @@ app.post('/api/changepassword', async (req, res) => {
 
 app.post('/feedetails', async (req, res) => {
     const body = req.body;
-    console.log("enrollment",body);
+    console.log("enrollment", body);
     try {
         const fee = await fees.find({ enrollment: body.enrollment }).toArray();
         if (fee.length > 0) {
