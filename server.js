@@ -9,11 +9,11 @@ const nodemailer = require('nodemailer');
 
 const url = process.env.MONGODB_URI;
 
-const client = new MongoClient(url);
-// const client = new MongoClient('mongodb://localhost:27017/');
+// const client = new MongoClient(url);
+const client = new MongoClient('mongodb://localhost:27017/');
 
-const dbName = process.env.DATABASE;
-// const dbName = 'busData';
+// const dbName = process.env.DATABASE;
+const dbName = 'busData';
 dotenv.config();
 const app = express();
 const port = 5000;
@@ -196,7 +196,7 @@ app.post('/StudentLoginOtp', async (req, res) => {
 
 app.post('/register', async (req, res) => {
     const formData = req.body;
-
+    console.log(formData);
 
     const user = await collection.findOne({ enrollment: formData.enrollment });
     if (user) {
@@ -206,7 +206,7 @@ app.post('/register', async (req, res) => {
     if (emailcheck) {
         return res.status(410).json({ message: 'User already present' });
     }
-    const mobilecheck = await collection.findOne({ phone: formData.mobile });
+    const mobilecheck = await collection.findOne({ phone: formData.phone });
     if (mobilecheck) {
         return res.status(410).json({ message: 'User already present' });
     }
