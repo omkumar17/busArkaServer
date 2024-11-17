@@ -313,12 +313,11 @@ app.get('/busdetails', async (req, res) => {
 });
 
 app.post('/busdetails', async (req, res) => {
-    const { id, reg_no, bus_no, destination, route, seatCount, peopleCount } = req.body;
+    const { id, reg_no, bus_no, destination, route, seatCount, peopleCount, latitude, longitude } = req.body;
 
     // Validate the input
     console.log("data", id, bus_no,);
-
-
+    
     try {
         // Insert the bus details into the "buses" collection
         const result = await busDetails.insertOne({
@@ -329,6 +328,8 @@ app.post('/busdetails', async (req, res) => {
             route,
             seatCount,
             peopleCount,
+            latitude,
+            longitude,
 
         });
 
