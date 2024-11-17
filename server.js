@@ -535,7 +535,7 @@ app.post('/api/rfid/check', async (req, res) => {
                     { $inc: { peopleCount: -1 } }
                 );
 
-                return res.status(200).json({
+                return res.status(201).json({
                     statusCode:201,
                     error: false,
                     message: 'Log entry created, student has left the bus.'
