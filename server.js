@@ -442,6 +442,7 @@ app.post('/api/rfid/check', async (req, res) => {
         const student = await studentLog.findOne({ rfid: rfid_code });
         if (!student) {
             return res.status(404).json({
+                statusCode:404,
                 error: true,
                 message: 'Invalid RFID: Student not found.'
             });
@@ -450,6 +451,7 @@ app.post('/api/rfid/check', async (req, res) => {
         const location = await busDetails.findOne({ reg_no: reg_no });
         if (!location) {
             return res.status(404).json({
+                statusCode:404,
                 error: true,
                 message: 'Invalid bus: bus not available.'
             });
@@ -496,12 +498,14 @@ app.post('/api/rfid/check', async (req, res) => {
                 );
 
                 return res.status(200).json({
+                    statusCode:200,
                     error: false,
                     message: 'Log entry created, student has boarded the bus.'
                 });
                 //update busdetails peoplecount field to +1 for reg_no=busno
             } else {
                 return res.status(500).json({
+                    statusCode:500,
                     error: true,
                     message: 'Failed to update student log.'
                 });
@@ -532,12 +536,14 @@ app.post('/api/rfid/check', async (req, res) => {
                 );
 
                 return res.status(200).json({
+                    statusCode:200,
                     error: false,
                     message: 'Log entry created, student has left the bus.'
                 });
                 //update busdetails peoplecount field to -1 for reg_no=busno
             } else {
                 return res.status(500).json({
+                    statusCode:500,
                     error: true,
                     message: 'Failed to update student log.'
                 });
@@ -546,6 +552,7 @@ app.post('/api/rfid/check', async (req, res) => {
     } catch (err) {
         console.error(err);
         return res.status(500).json({
+            statusCode:500,
             error: true,
             message: 'Internal server error.'
         });
@@ -563,6 +570,7 @@ app.post('/api/bus_location/update', async (req, res) => {
 
         if (!bus) {
             return res.status(404).json({
+                statusCode:404,
                 error: true,
                 message: 'Bus not found.'
             });
@@ -581,11 +589,13 @@ app.post('/api/bus_location/update', async (req, res) => {
 
         if (result.modifiedCount === 1) {
             return res.status(200).json({
+                statusCode:200,
                 error: false,
                 message: 'Bus location updated successfully.'
             });
         } else {
             return res.status(500).json({
+                statusCode:500,
                 error: true,
                 message: 'Failed to update bus location.'
             });
@@ -593,6 +603,7 @@ app.post('/api/bus_location/update', async (req, res) => {
     } catch (err) {
         console.error(err);
         return res.status(500).json({
+            statusCode:500,
             error: true,
             message: 'Internal server error.'
         });
