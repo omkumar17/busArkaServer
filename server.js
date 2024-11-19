@@ -225,7 +225,7 @@ app.post('/register', async (req, res) => {
 
 
         const result = await collection.insertOne(newUser);
-        const result2 = await studentLog.insertOne({rfid:newUser.rfid,current:"",status:"left",logs:[]});
+        const result2 = await studentLog.insertOne({rfid:newUser.rfid,enrollment:newUser.enrollment,current:"",status:"left",logs:[]});
         res.send({ success: true, result: result,result2 });
     } catch (error) {
         console.error('Error fetching documents:', error);
